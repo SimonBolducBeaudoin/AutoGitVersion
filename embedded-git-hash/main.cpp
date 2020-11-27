@@ -1,5 +1,5 @@
-#include <iosteam>
-#include "git_vesion.h"
+#include <iostream>
+#include "git_version.h"
 
 int main()
 {

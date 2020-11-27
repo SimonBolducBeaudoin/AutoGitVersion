@@ -1,5 +1,7 @@
 message("source ${CMAKE_CURRENT_SOURCE_DIR}")
 message("source ${CMAKE_CURRENT_LIST_DIR}")
+
+set(CURRENT_LIST_DIR ${CMAKE_CURRENT_LIST_DIR})
 if (NOT DEFINED pre_configure_dir)
     set(pre_configure_dir ${CMAKE_CURRENT_LIST_DIR})
 endif ()
@@ -65,9 +67,10 @@ function(CheckGitSetup)
         -Dpre_configure_dir=${pre_configure_dir}
         -Dpost_configure_file=${post_configure_dir}
         -DGIT_HASH_CACHE=${GIT_HASH_CACHE}
-        -P ${CMAKE_CURRENT_LIST_DIR}/cmake/CheckGit.cmake
+        -P ${CURRENT_LIST_DIR}/CheckGit.cmake
         BYPRODUCTS ${post_configure_file}
         )
+    message("AOEU ${CURRENT_LIST_DIR}")
 
     add_library(git_version ${CMAKE_BINARY_DIR}/generated/git_version.cpp)
     target_include_directories(git_version PUBLIC ${CMAKE_BINARY_DIR}/generated)
