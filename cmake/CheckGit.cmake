@@ -1,6 +1,3 @@
-message("source ${CMAKE_CURRENT_SOURCE_DIR}")
-message("source ${CMAKE_CURRENT_LIST_DIR}")
-
 set(CURRENT_LIST_DIR ${CMAKE_CURRENT_LIST_DIR})
 if (NOT DEFINED pre_configure_dir)
     set(pre_configure_dir ${CMAKE_CURRENT_LIST_DIR})
@@ -70,7 +67,6 @@ function(CheckGitSetup)
         -P ${CURRENT_LIST_DIR}/CheckGit.cmake
         BYPRODUCTS ${post_configure_file}
         )
-    message("AOEU ${CURRENT_LIST_DIR}")
 
     add_library(git_version ${CMAKE_BINARY_DIR}/generated/git_version.cpp)
     target_include_directories(git_version PUBLIC ${CMAKE_BINARY_DIR}/generated)
