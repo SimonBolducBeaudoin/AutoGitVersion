@@ -85,11 +85,7 @@ function(UpdateGitCache)
     if (NOT EXISTS ${post_configure_dir}/git_version.h)
         file(COPY ${pre_configure_dir}/git_version.h DESTINATION ${post_configure_dir})
     endif()
-    
-    if (NOT ${GIT_HASH} STREQUAL "${GIT_HASH_CACHE}" )
-        message(${GIT_HASH})
-    endif()
-    
+        
     # Only update the git_version.cpp if the hash or tag has changed.
     # This will prevent unnecessary project rebuilding.
     if (NOT (${GIT_HASH} STREQUAL ${GIT_HASH_CACHE} AND ${GIT_TAG} STREQUAL ${GIT_TAG_CACHE}) OR NOT EXISTS ${post_configure_file})
