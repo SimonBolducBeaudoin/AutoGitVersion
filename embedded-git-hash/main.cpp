@@ -3,6 +3,7 @@
 
 int main()
 {
+    std::cout << "Git Tag: " << kGitTag << "\n";
     std::cout << "Git Hash: " << kGitHash << "\n";
     return 0;
 }
