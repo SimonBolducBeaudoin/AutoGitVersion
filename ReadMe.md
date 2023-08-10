@@ -6,8 +6,10 @@ This is bassically a copy of : https://gitlab.com/jhamberg/cmake-examples.git wi
 - Adding to your cmake project
     - Clone AutoGitVersion as a submodule into your project
     - In CMakeLists.txt add
+
         include(.../AutoGitVersion.cmake) # Defined cmake functions : AutoGitVersion and others
-        AutoGitVersion()           # Sets up a target git_version.cpp that contains  kGitHash and GitTag; as const
+      
+        AutoGitVersion()                  # Sets up a target git_version.cpp that contains  kGitHash and GitTag; as const
 - Compiling the example 
    - cd example/
    - mkdir build
