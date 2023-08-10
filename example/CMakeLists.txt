@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.11)
-project(git-hash)
+project(AutoGitVersion)
 
 include(../AutoGitVersion.cmake) # Defined cmake functions : AutoGitVersion and others
 AutoGitVersion()           # Sets up a target git_version.cpp that constains  kGitHash and GitTag; as const
