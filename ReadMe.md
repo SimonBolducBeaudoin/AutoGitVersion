@@ -1,4 +1,4 @@
-# AutoGitVerion
+# AutoGitVersion
 Saving current git tag and git hash at compile time.
 
 This is bassically a copy of : https://gitlab.com/jhamberg/cmake-examples.git with some slight modifications.
