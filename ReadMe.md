@@ -1,7 +1,7 @@
 # AutoGitVerion
 Saving current git tag and git hash at compile time.
 
-This is bassically a copy of : https://gitlab.com/jhamberg/cmake-examples.git with soem slight modifications.
+This is bassically a copy of : https://gitlab.com/jhamberg/cmake-examples.git with some slight modifications.
 
 - Adding to your cmake project
     - Clone AutoGitVersion as a submodule into your project
