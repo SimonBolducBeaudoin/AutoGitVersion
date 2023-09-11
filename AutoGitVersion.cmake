@@ -7,30 +7,26 @@ if (NOT DEFINED post_configure_dir)
     set(post_configure_dir ${CMAKE_BINARY_DIR}/generated)
 endif ()
 
+if (NOT DEFINED WORKING_DIR)
+    set(WORKING_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+endif ()
+
 set(pre_configure_file ${pre_configure_dir}/git_version.cpp.in)
 set(post_configure_file ${post_configure_dir}/git_version.cpp)
-
-# function(GetGitCache git_info)
-    # if (EXISTS ${CMAKE_BINARY_DIR}/git-state.txt)
-        # file(STRINGS ${CMAKE_BINARY_DIR}/git-state.txt CONTENT)
-        # set(${git_info} ${CONTENT} PARENT_SCOPE)
-    # endif ()
-# endfunction()
 
 function(GetGitCache git_info)
     if (EXISTS ${CMAKE_BINARY_DIR}/git-state.txt)
         file(READ ${CMAKE_BINARY_DIR}/git-state.txt CONTENT)
-        #string(STRIP "${CONTENT}" CONTENT)  # Remove leading/trailing whitespace
         set(${git_info} ${CONTENT} PARENT_SCOPE)
     endif()
 endfunction()
 
-
 function(GetGitInfo git_info)
+
     # Get the abbreviated commit hash
     execute_process(
         COMMAND git log -1 --format=%h
-        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        WORKING_DIRECTORY ${WORKING_DIR}
         OUTPUT_VARIABLE GIT_HASH
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_VARIABLE GIT_ERROR
@@ -39,7 +35,7 @@ function(GetGitInfo git_info)
     # Get the author's name
     execute_process(
         COMMAND git log -1 --format=%an
-        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        WORKING_DIRECTORY ${WORKING_DIR}
         OUTPUT_VARIABLE GIT_AUTHOR
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
@@ -47,23 +43,23 @@ function(GetGitInfo git_info)
     # Get the commit date
     execute_process(
         COMMAND git log -1 --format=%ad --date=iso
-        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        WORKING_DIRECTORY ${WORKING_DIR}
         OUTPUT_VARIABLE GIT_DATE
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
 
-    # Get the commit message
+    # Get the commit #message
     execute_process(
         COMMAND git log -1 --format=%s
-        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-        OUTPUT_VARIABLE GIT_MESSAGE
+        WORKING_DIRECTORY ${WORKING_DIR}
+        OUTPUT_VARIABLE GIT_#message
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
 
     # Get the current branch name
     execute_process(
         COMMAND git symbolic-ref --short HEAD
-        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        WORKING_DIRECTORY ${WORKING_DIR}
         OUTPUT_VARIABLE GIT_BRANCH
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
@@ -71,7 +67,7 @@ function(GetGitInfo git_info)
     # Get the repository URL
     execute_process(
         COMMAND git remote get-url origin
-        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        WORKING_DIRECTORY ${WORKING_DIR}
         OUTPUT_VARIABLE GIT_URL
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
@@ -79,21 +75,20 @@ function(GetGitInfo git_info)
     # Get the latest tag or set to "0.0.0" if no tag exists
     execute_process(
         COMMAND git describe --tags --abbrev=0
-        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        WORKING_DIRECTORY ${WORKING_DIR}
         OUTPUT_VARIABLE GIT_TAG
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
     if (GIT_TAG STREQUAL "")
         set(GIT_TAG "0.0.0")
     endif()
-
+        
     # Create a dictionary to hold the Git information
     set(${git_info}
-        "\\n\\tHash: ${GIT_HASH}\\n\\tAuthor: ${GIT_AUTHOR}\\n\\tDate: ${GIT_DATE}\\n\\tMessage: ${GIT_MESSAGE}\\n\\tBranch: ${GIT_BRANCH}\\n\\tURL: ${GIT_URL}\\n\\tTag: ${GIT_TAG}"
+        "\\n\\tHash: ${GIT_HASH}\\n\\tAuthor: ${GIT_AUTHOR}\\n\\tDate: ${GIT_DATE}\\n\\tmessage: ${GIT_message}\\n\\tBranch: ${GIT_BRANCH}\\n\\tURL: ${GIT_URL}\\n\\tTag: ${GIT_TAG}"
         PARENT_SCOPE
     )
 endfunction()
-
 
 function(WriteGitCache git_info)
     file(WRITE ${CMAKE_BINARY_DIR}/git-state.txt "${git_info}")
@@ -121,20 +116,19 @@ function(UpdateGitCache)
         WriteGitCache(${GIT_INFO})
         configure_file(${pre_configure_file} ${post_configure_file} @ONLY)
     endif()
-    
 endfunction()
 
 function(AutoGitVersion)
-
+   
     add_custom_target(AlwaysCheckGit COMMAND ${CMAKE_COMMAND}
         -DRUN_UPDATE_GIT_CACHE=1
         -Dpre_configure_dir=${pre_configure_dir}
         -Dpost_configure_file=${post_configure_dir}
+        -DWORKING_DIR=${WORKING_DIR}
         -DGIT_INFO_CACHE=${GIT_INFO_CACHE}
         -P ${CURRENT_LIST_DIR}/AutoGitVersion.cmake
         BYPRODUCTS ${post_configure_file}
         )
-
     add_library(git_version ${CMAKE_BINARY_DIR}/generated/git_version.cpp)
     target_include_directories(git_version PUBLIC ${CMAKE_BINARY_DIR}/generated)
     add_dependencies(git_version AlwaysCheckGit)
