@@ -7,75 +7,99 @@ if (NOT DEFINED post_configure_dir)
     set(post_configure_dir ${CMAKE_BINARY_DIR}/generated)
 endif ()
 
+if (NOT DEFINED WORKING_DIR)
+    set(WORKING_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+endif ()
+
 set(pre_configure_file ${pre_configure_dir}/git_version.cpp.in)
 set(post_configure_file ${post_configure_dir}/git_version.cpp)
 
-function(GetGitCache git_tag git_hash)
+function(GetGitCache git_info)
     if (EXISTS ${CMAKE_BINARY_DIR}/git-state.txt)
-        file(STRINGS ${CMAKE_BINARY_DIR}/git-state.txt CONTENT)
-        list(GET CONTENT 0 tag_line)
-        list(GET CONTENT 1 hash_line)
-        set(${git_tag} ${tag_line} PARENT_SCOPE)
-        set(${git_hash} ${hash_line} PARENT_SCOPE)
-    endif ()
+        file(READ ${CMAKE_BINARY_DIR}/git-state.txt CONTENT)
+        set(${git_info} ${CONTENT} PARENT_SCOPE)
+    endif()
 endfunction()
 
+function(GetGitInfo git_info)
 
-function(GetGitHash git_hash)
-    # Get the latest abbreviated commit hash of the working branch
+    # Get the abbreviated commit hash
     execute_process(
         COMMAND git log -1 --format=%h
-        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        WORKING_DIRECTORY ${WORKING_DIR}
         OUTPUT_VARIABLE GIT_HASH
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_VARIABLE GIT_ERROR
-        )
-    if (GIT_ERROR)
-        message(WARNING "Git error: ${GIT_ERROR}")
-        set(GIT_HASH "0")
-    endif()
-    set(${git_hash} ${GIT_HASH}  PARENT_SCOPE)
-endfunction()
-
-function(GetGitTag git_tag)
-# Returns the last git tag into the git_tag variable
-    # Get the latest version tag
-    execute_process(
-        COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        OUTPUT_VARIABLE GIT_VERSION_TAG
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_VARIABLE GIT_ERROR
     )
-    
-    # Check if there was an error in running the Git command
-    if (GIT_ERROR)
-        message(WARNING "Git error: ${GIT_ERROR}")
-        set(GIT_VERSION_TAG "0.0.0")
+
+    # Get the author's name
+    execute_process(
+        COMMAND git log -1 --format=%an
+        WORKING_DIRECTORY ${WORKING_DIR}
+        OUTPUT_VARIABLE GIT_AUTHOR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    # Get the commit date
+    execute_process(
+        COMMAND git log -1 --format=%ad --date=iso
+        WORKING_DIRECTORY ${WORKING_DIR}
+        OUTPUT_VARIABLE GIT_DATE
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    # Get the commit #message
+    execute_process(
+        COMMAND git log -1 --format=%s
+        WORKING_DIRECTORY ${WORKING_DIR}
+        OUTPUT_VARIABLE GIT_#message
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    # Get the current branch name
+    execute_process(
+        COMMAND git symbolic-ref --short HEAD
+        WORKING_DIRECTORY ${WORKING_DIR}
+        OUTPUT_VARIABLE GIT_BRANCH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    # Get the repository URL
+    execute_process(
+        COMMAND git remote get-url origin
+        WORKING_DIRECTORY ${WORKING_DIR}
+        OUTPUT_VARIABLE GIT_URL
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    # Get the latest tag or set to "0.0.0" if no tag exists
+    execute_process(
+        COMMAND git describe --tags --abbrev=0
+        WORKING_DIRECTORY ${WORKING_DIR}
+        OUTPUT_VARIABLE GIT_TAG
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if (GIT_TAG STREQUAL "")
+        set(GIT_TAG "0.0.0")
     endif()
-    
-    set(${git_tag} ${GIT_VERSION_TAG}  PARENT_SCOPE)
+        
+    # Create a dictionary to hold the Git information
+    set(${git_info}
+        "\\n\\tHash: ${GIT_HASH}\\n\\tAuthor: ${GIT_AUTHOR}\\n\\tDate: ${GIT_DATE}\\n\\tmessage: ${GIT_message}\\n\\tBranch: ${GIT_BRANCH}\\n\\tURL: ${GIT_URL}\\n\\tTag: ${GIT_TAG}"
+        PARENT_SCOPE
+    )
 endfunction()
 
-function(WriteGitCache git_tag git_hash)
-    file(WRITE ${CMAKE_BINARY_DIR}/git-state.txt "${git_tag}\n${git_hash}")
+function(WriteGitCache git_info)
+    file(WRITE ${CMAKE_BINARY_DIR}/git-state.txt "${git_info}")
 endfunction()
 
 function(UpdateGitCache)  
-    GetGitTag(GIT_TAG)
-    GetGitHash(GIT_HASH)
-    GetGitCache(GIT_TAG_CACHE GIT_HASH_CACHE)
+    GetGitInfo(GIT_INFO)
+    GetGitCache(GIT_INFO_CACHE)
     
-    if (NOT DEFINED GIT_TAG)
-        set(GIT_TAG "0.0.0")
-    endif ()
-    
-    if (NOT DEFINED GIT_TAG_CACHE)
-        set(GIT_TAG_CACHE "INVALID_TAG")
-    endif ()
-    
-    if (NOT DEFINED GIT_HASH_CACHE)
-        set(GIT_HASH_CACHE "INVALID_HASH")
+    if (NOT DEFINED GIT_INFO_CACHE)
+        set(GIT_INFO_CACHE "INVALID_GIT_INFO")
     endif ()
     
     if (NOT EXISTS ${post_configure_dir})
@@ -88,23 +112,23 @@ function(UpdateGitCache)
         
     # Only update the git_version.cpp if the hash or tag has changed.
     # This will prevent unnecessary project rebuilding.
-    if (NOT (${GIT_HASH} STREQUAL ${GIT_HASH_CACHE} AND ${GIT_TAG} STREQUAL ${GIT_TAG_CACHE}) OR NOT EXISTS ${post_configure_file})
-        WriteGitCache(${GIT_TAG} ${GIT_HASH})
+    if (NOT (${GIT_INFO} STREQUAL ${GIT_INFO_CACHE}) OR NOT EXISTS ${post_configure_file})
+        WriteGitCache(${GIT_INFO})
         configure_file(${pre_configure_file} ${post_configure_file} @ONLY)
     endif()
 endfunction()
 
 function(AutoGitVersion)
-
+   
     add_custom_target(AlwaysCheckGit COMMAND ${CMAKE_COMMAND}
         -DRUN_UPDATE_GIT_CACHE=1
         -Dpre_configure_dir=${pre_configure_dir}
         -Dpost_configure_file=${post_configure_dir}
-        -DGIT_HASH_CACHE=${GIT_HASH_CACHE}
+        -DWORKING_DIR=${WORKING_DIR}
+        -DGIT_INFO_CACHE=${GIT_INFO_CACHE}
         -P ${CURRENT_LIST_DIR}/AutoGitVersion.cmake
         BYPRODUCTS ${post_configure_file}
         )
-
     add_library(git_version ${CMAKE_BINARY_DIR}/generated/git_version.cpp)
     target_include_directories(git_version PUBLIC ${CMAKE_BINARY_DIR}/generated)
     add_dependencies(git_version AlwaysCheckGit)

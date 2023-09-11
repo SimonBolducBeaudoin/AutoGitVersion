@@ -1,3 +1,2 @@
 #include "git_version.h"
-const char *kGitTag = "@GIT_TAG@";
-const char *kGitHash = "@GIT_HASH@";
+const char *kGitInfo = "@GIT_INFO@";
