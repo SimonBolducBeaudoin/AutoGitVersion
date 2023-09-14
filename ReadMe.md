@@ -9,7 +9,7 @@ This is bassically a copy of : https://gitlab.com/jhamberg/cmake-examples.git an
     - Clone AutoGitVersion somewhere
     - In CMakeLists.txt (after project declaration)
         include(.../AutoGitVersion.cmake) # Defined cmake functions : AutoGitVersion and others
-        AutoGitVersion(${CMAKE_PROJECT_NAME})                  # Sets up a target git_version.cpp that contains  kGitInfo; as const
+        AutoGitVersion(${PROJECT_NAME})                  # Sets up a target git_version.cpp that contains  kGitInfo; as const
     - You will now have the variable const char *kGitInfo available in you C/C++ project.
 - Compiling the example 
    - cd example/
