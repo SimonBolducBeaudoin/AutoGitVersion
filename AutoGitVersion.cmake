@@ -72,53 +72,57 @@ function(GetGitInfo git_info module_dir)
     )
 endfunction()
 
-function(GetGitCache git_info module_dir)
-    if (EXISTS ${module_dir}/build/AutoGitVersion/git-state.txt)
-        file(READ ${module_dir}/build/AutoGitVersion/git-state.txt CONTENT)
+function(GetGitCache git_info)
+    if (EXISTS ${CMAKE_CURRENT_BINARY_DIR}/AutoGitVersion/git-state.txt)
+        file(READ ${CMAKE_CURRENT_BINARY_DIR}/AutoGitVersion/git-state.txt CONTENT)
         set(${git_info} ${CONTENT} PARENT_SCOPE)
     endif()
 endfunction()
 
-function(UpdateGitCache module_dir)  
+function(UpdateGitCache module_dir module_binary_dir)  
     GetGitInfo(GIT_INFO ${module_dir})
-    GetGitCache(GIT_INFO_CACHE ${module_dir})
+    GetGitCache(GIT_INFO_CACHE)
     if (NOT DEFINED GIT_INFO_CACHE)
         set(GIT_INFO_CACHE "INVALID_GIT_INFO")
     endif ()
-    if (NOT (${GIT_INFO} STREQUAL ${GIT_INFO_CACHE}) OR NOT EXISTS ${module_dir}/build/AutoGitVersion/git_version.cpp)
-        file(WRITE ${module_dir}/build/AutoGitVersion/git-state.txt "${GIT_INFO}")
-        configure_file(${AutoGitVersion_DIR}/git_version.cpp.in ${module_dir}/build/AutoGitVersion/git_version.cpp @ONLY)
+    if (NOT (${GIT_INFO} STREQUAL ${GIT_INFO_CACHE}) OR NOT EXISTS ${module_binary_dir}/AutoGitVersion/git_version.cpp)
+        file(WRITE ${module_binary_dir}/AutoGitVersion/git-state.txt "${GIT_INFO}")
+        configure_file(${AutoGitVersion_DIR}/git_version.cpp.in ${module_binary_dir}/AutoGitVersion/git_version.cpp @ONLY)
     endif()
 endfunction()
 
-function(AutoGitVersion project_name)
+function(AutoGitVersion git_version_target project_name)
     #This function is called in the module or submodule's CMakeLists
     #It sets up a target containt the current git informations 
     #This target gets updated at compile time iif the git hash as changed.
     add_custom_target(AlwaysCheckGit_${project_name} COMMAND ${CMAKE_COMMAND}
     -DRUN_UPDATE_GIT_CACHE=1
     -DGIT_INFO_CACHE="INVALID_GIT_INFO"              # Git as not been called yet
-    -DMODULE_DIR=${CMAKE_CURRENT_SOURCE_DIR}          # The module/submodule's build directory
+    -DMODULE_DIR=${CMAKE_CURRENT_SOURCE_DIR}         # The module/submodule's build directory
+    -DMODULE_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}         # The module/submodule's build directory
     -P ${AutoGitVersion_DIR}/AutoGitVersion.cmake    # This files (aka AutoGitVersion.cmake)
-    BYPRODUCTS ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion/git_version.cpp
+    BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/AutoGitVersion/git_version.cpp
     )
     
-    if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion)
-        file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion)
+    if (NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/AutoGitVersion)
+        file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/AutoGitVersion)
     endif ()
-    if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion/git_version.h)
-        file(COPY ${AutoGitVersion_DIR}/git_version.h DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion)
+    if (NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/AutoGitVersion/git_version.h)
+        configure_file(${AutoGitVersion_DIR}/git_version.h ${CMAKE_CURRENT_BINARY_DIR}/AutoGitVersion/git_version.h COPYONLY)
     endif()
     
     set(GIT_INFO_CACHE "INVALID_GIT_INFO") # Default value
-    configure_file(${AutoGitVersion_DIR}/git_version.cpp.in ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion/git_version.cpp @ONLY)
-    add_library(git_version_${project_name} ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion/git_version.cpp) 
-    target_include_directories(git_version_${project_name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion)
-    add_dependencies(git_version_${project_name} AlwaysCheckGit_${project_name})   
+    configure_file(${AutoGitVersion_DIR}/git_version.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/AutoGitVersion/git_version.cpp @ONLY)
+    set(target git_version_${project_name})
+    add_library(${target} ${CMAKE_CURRENT_BINARY_DIR}/AutoGitVersion/git_version.cpp)
+    set_target_properties(${target} PROPERTIES OUTPUT_NAME git_version)
+    target_include_directories(${target} PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/AutoGitVersion)
+    add_dependencies(${target} AlwaysCheckGit_${project_name})
+    set(${git_version_target} ${target} PARENT_SCOPE)
 endfunction()
 
 # This is used to run this function from an external cmake process.
 if (RUN_UPDATE_GIT_CACHE)
-    UpdateGitCache(${MODULE_DIR})
+    UpdateGitCache(${MODULE_DIR} ${MODULE_BINARY_DIR} )
 endif ()
 
