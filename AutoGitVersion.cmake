@@ -1,32 +1,10 @@
-set(CURRENT_LIST_DIR ${CMAKE_CURRENT_LIST_DIR})
-if (NOT DEFINED pre_configure_dir)
-    set(pre_configure_dir ${CMAKE_CURRENT_LIST_DIR})
-endif ()
+set( AutoGitVersion_DIR  ${CMAKE_CURRENT_LIST_DIR} ) # This files (aka AutoGitVersion.cmake)
 
-if (NOT DEFINED post_configure_dir)
-    set(post_configure_dir ${CMAKE_BINARY_DIR}/generated)
-endif ()
-
-if (NOT DEFINED WORKING_DIR)
-    set(WORKING_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-endif ()
-
-set(pre_configure_file ${pre_configure_dir}/git_version.cpp.in)
-set(post_configure_file ${post_configure_dir}/git_version.cpp)
-
-function(GetGitCache git_info)
-    if (EXISTS ${CMAKE_BINARY_DIR}/git-state.txt)
-        file(READ ${CMAKE_BINARY_DIR}/git-state.txt CONTENT)
-        set(${git_info} ${CONTENT} PARENT_SCOPE)
-    endif()
-endfunction()
-
-function(GetGitInfo git_info)
-
+function(GetGitInfo git_info module_dir)
     # Get the abbreviated commit hash
     execute_process(
         COMMAND git log -1 --format=%h
-        WORKING_DIRECTORY ${WORKING_DIR}
+        WORKING_DIRECTORY ${module_dir}
         OUTPUT_VARIABLE GIT_HASH
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_VARIABLE GIT_ERROR
@@ -35,7 +13,7 @@ function(GetGitInfo git_info)
     # Get the author's name
     execute_process(
         COMMAND git log -1 --format=%an
-        WORKING_DIRECTORY ${WORKING_DIR}
+        WORKING_DIRECTORY ${module_dir}
         OUTPUT_VARIABLE GIT_AUTHOR
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
@@ -43,7 +21,7 @@ function(GetGitInfo git_info)
     # Get the commit date
     execute_process(
         COMMAND git log -1 --format=%ad --date=iso
-        WORKING_DIRECTORY ${WORKING_DIR}
+        WORKING_DIRECTORY ${module_dir}
         OUTPUT_VARIABLE GIT_DATE
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
@@ -51,7 +29,7 @@ function(GetGitInfo git_info)
     # Get the commit #message
     execute_process(
         COMMAND git log -1 --format=%s
-        WORKING_DIRECTORY ${WORKING_DIR}
+        WORKING_DIRECTORY ${module_dir}
         OUTPUT_VARIABLE GIT_#message
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
@@ -59,15 +37,18 @@ function(GetGitInfo git_info)
     # Get the current branch name
     execute_process(
         COMMAND git symbolic-ref --short HEAD
-        WORKING_DIRECTORY ${WORKING_DIR}
+        WORKING_DIRECTORY ${module_dir}
         OUTPUT_VARIABLE GIT_BRANCH
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
+    if ((GIT_BRANCH STREQUAL "") OR (GIT_BRANCH STREQUAL "fatal: ref HEAD is not a symbolic ref"))
+        set(GIT_BRANCH "DETACHED HEAD")
+    endif()
 
     # Get the repository URL
     execute_process(
         COMMAND git remote get-url origin
-        WORKING_DIRECTORY ${WORKING_DIR}
+        WORKING_DIRECTORY ${module_dir}
         OUTPUT_VARIABLE GIT_URL
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
@@ -75,69 +56,71 @@ function(GetGitInfo git_info)
     # Get the latest tag or set to "0.0.0" if no tag exists
     execute_process(
         COMMAND git describe --tags --abbrev=0
-        WORKING_DIRECTORY ${WORKING_DIR}
+        WORKING_DIRECTORY ${module_dir}
         OUTPUT_VARIABLE GIT_TAG
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
-    if (GIT_TAG STREQUAL "")
+    if ((GIT_TAG STREQUAL ""))
         set(GIT_TAG "0.0.0")
     endif()
         
     # Create a dictionary to hold the Git information
+    
     set(${git_info}
         "\\n\\tHash: ${GIT_HASH}\\n\\tAuthor: ${GIT_AUTHOR}\\n\\tDate: ${GIT_DATE}\\n\\tmessage: ${GIT_message}\\n\\tBranch: ${GIT_BRANCH}\\n\\tURL: ${GIT_URL}\\n\\tTag: ${GIT_TAG}"
         PARENT_SCOPE
     )
 endfunction()
 
-function(WriteGitCache git_info)
-    file(WRITE ${CMAKE_BINARY_DIR}/git-state.txt "${git_info}")
+function(GetGitCache git_info module_dir)
+    if (EXISTS ${module_dir}/build/AutoGitVersion/git-state.txt)
+        file(READ ${module_dir}/build/AutoGitVersion/git-state.txt CONTENT)
+        set(${git_info} ${CONTENT} PARENT_SCOPE)
+    endif()
 endfunction()
 
-function(UpdateGitCache)  
-    GetGitInfo(GIT_INFO)
-    GetGitCache(GIT_INFO_CACHE)
-    
+function(UpdateGitCache module_dir)  
+    GetGitInfo(GIT_INFO ${module_dir})
+    GetGitCache(GIT_INFO_CACHE ${module_dir})
     if (NOT DEFINED GIT_INFO_CACHE)
         set(GIT_INFO_CACHE "INVALID_GIT_INFO")
     endif ()
+    if (NOT (${GIT_INFO} STREQUAL ${GIT_INFO_CACHE}) OR NOT EXISTS ${module_dir}/build/AutoGitVersion/git_version.cpp)
+        file(WRITE ${module_dir}/build/AutoGitVersion/git-state.txt "${GIT_INFO}")
+        configure_file(${AutoGitVersion_DIR}/git_version.cpp.in ${module_dir}/build/AutoGitVersion/git_version.cpp @ONLY)
+    endif()
+endfunction()
+
+function(AutoGitVersion project_name)
+    #This function is called in the module or submodule's CMakeLists
+    #It sets up a target containt the current git informations 
+    #This target gets updated at compile time iif the git hash as changed.
+    message(Function CMAKE_BINARY_DIR : ${CMAKE_BINARY_DIR})
+    message(Function CMAKE_BINARY_DIR : ${CMAKE_CURRENT_SOURCE_DIR})
+    add_custom_target(AlwaysCheckGit_${project_name} COMMAND ${CMAKE_COMMAND}
+    -DRUN_UPDATE_GIT_CACHE=1
+    -DGIT_INFO_CACHE="INVALID_GIT_INFO"              # Git as not been called yet
+    -DMODULE_DIR=${CMAKE_CURRENT_SOURCE_DIR}          # The module/submodule's build directory
+    -P ${AutoGitVersion_DIR}/AutoGitVersion.cmake    # This files (aka AutoGitVersion.cmake)
+    BYPRODUCTS ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion/git_version.cpp
+    )
     
-    if (NOT EXISTS ${post_configure_dir})
-        file(MAKE_DIRECTORY ${post_configure_dir})
+    if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion)
+        file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion)
     endif ()
-
-    if (NOT EXISTS ${post_configure_dir}/git_version.h)
-        file(COPY ${pre_configure_dir}/git_version.h DESTINATION ${post_configure_dir})
+    if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion/git_version.h)
+        file(COPY ${AutoGitVersion_DIR}/git_version.h DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion)
     endif()
-        
-    # Only update the git_version.cpp if the hash or tag has changed.
-    # This will prevent unnecessary project rebuilding.
-    if (NOT (${GIT_INFO} STREQUAL ${GIT_INFO_CACHE}) OR NOT EXISTS ${post_configure_file})
-        WriteGitCache(${GIT_INFO})
-        configure_file(${pre_configure_file} ${post_configure_file} @ONLY)
-    endif()
+    
+    set(GIT_INFO_CACHE "INVALID_GIT_INFO") # Default value
+    configure_file(${AutoGitVersion_DIR}/git_version.cpp.in ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion/git_version.cpp @ONLY)
+    add_library(git_version ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion/git_version.cpp) 
+    target_include_directories(git_version PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion)
+    add_dependencies(git_version AlwaysCheckGit_${project_name})   
 endfunction()
-
-function(AutoGitVersion)
-   
-    add_custom_target(AlwaysCheckGit COMMAND ${CMAKE_COMMAND}
-        -DRUN_UPDATE_GIT_CACHE=1
-        -Dpre_configure_dir=${pre_configure_dir}
-        -Dpost_configure_file=${post_configure_dir}
-        -DWORKING_DIR=${WORKING_DIR}
-        -DGIT_INFO_CACHE=${GIT_INFO_CACHE}
-        -P ${CURRENT_LIST_DIR}/AutoGitVersion.cmake
-        BYPRODUCTS ${post_configure_file}
-        )
-    add_library(git_version ${CMAKE_BINARY_DIR}/generated/git_version.cpp)
-    target_include_directories(git_version PUBLIC ${CMAKE_BINARY_DIR}/generated)
-    add_dependencies(git_version AlwaysCheckGit)
-
-    UpdateGitCache()
-endfunction()
-
 
 # This is used to run this function from an external cmake process.
 if (RUN_UPDATE_GIT_CACHE)
-    UpdateGitCache()
+    UpdateGitCache(${MODULE_DIR})
 endif ()
+
