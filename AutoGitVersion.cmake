@@ -95,8 +95,6 @@ function(AutoGitVersion project_name)
     #This function is called in the module or submodule's CMakeLists
     #It sets up a target containt the current git informations 
     #This target gets updated at compile time iif the git hash as changed.
-    message(Function CMAKE_BINARY_DIR : ${CMAKE_BINARY_DIR})
-    message(Function CMAKE_BINARY_DIR : ${CMAKE_CURRENT_SOURCE_DIR})
     add_custom_target(AlwaysCheckGit_${project_name} COMMAND ${CMAKE_COMMAND}
     -DRUN_UPDATE_GIT_CACHE=1
     -DGIT_INFO_CACHE="INVALID_GIT_INFO"              # Git as not been called yet
@@ -114,9 +112,9 @@ function(AutoGitVersion project_name)
     
     set(GIT_INFO_CACHE "INVALID_GIT_INFO") # Default value
     configure_file(${AutoGitVersion_DIR}/git_version.cpp.in ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion/git_version.cpp @ONLY)
-    add_library(git_version ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion/git_version.cpp) 
-    target_include_directories(git_version PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion)
-    add_dependencies(git_version AlwaysCheckGit_${project_name})   
+    add_library(git_version_${project_name} ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion/git_version.cpp) 
+    target_include_directories(git_version_${project_name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/build/AutoGitVersion)
+    add_dependencies(git_version_${project_name} AlwaysCheckGit_${project_name})   
 endfunction()
 
 # This is used to run this function from an external cmake process.
